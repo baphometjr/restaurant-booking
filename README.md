@@ -14,6 +14,7 @@ Developed across 4 phases — from core auth to a hardened, production-ready API
 | **Auth** | JWT access tokens + httpOnly refresh token cookies, Argon2 password hashing |
 | **Frontend** | Next.js 16 (App Router), React 19, Tailwind CSS, TanStack Query |
 | **Testing** | pytest + pytest-asyncio (36 tests), Playwright E2E (4 scenarios) |
+| **Deployment** | Docker Compose (db + backend + frontend), multi-stage Next.js build |
 | **Other** | slowapi rate limiting, smtplib email notifications, structured JSON logging |
 
 ---
@@ -58,6 +59,11 @@ restaurant-booking/
 │       ├── test_auth.py
 │       ├── test_bookings.py
 │       └── test_tables.py
+│
+├── backend/Dockerfile      ← python:3.12-slim, layer-cached pip install
+├── frontend/Dockerfile     ← multi-stage build (builder + standalone runner)
+├── docker-compose.yml      ← 3-service stack with healthcheck + depends_on
+├── docs/DOCKER_GUIDE.md    ← full Docker setup guide (Thai)
 │
 └── frontend/
     ├── app/
@@ -104,12 +110,38 @@ Interactive docs: `http://localhost:8000/api/docs`
 
 ## Getting Started
 
-### Prerequisites
-- Python 3.12
-- Node.js 20+
-- PostgreSQL 16
+### Option A — Docker (Recommended)
 
-### 1. Database Setup
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+```bash
+# Clone and start everything in one command
+git clone https://github.com/baphometjr/restaurant-booking.git
+cd restaurant-booking
+
+# Create the backend environment file
+cp backend/.env.example .env.docker
+# Edit .env.docker: change DATABASE_URL host from "localhost" → "db"
+#   DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/restaurant_db
+
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000/api/docs |
+
+Alembic migrations run automatically on every `docker compose up`.  
+See [`docs/DOCKER_GUIDE.md`](docs/DOCKER_GUIDE.md) for a full explanation of the Docker setup.
+
+---
+
+### Option B — Manual Setup
+
+**Prerequisites:** Python 3.12, Node.js 20+, PostgreSQL 16
+
+#### 1. Database Setup
 
 ```sql
 CREATE DATABASE restaurant_db;
@@ -117,7 +149,7 @@ CREATE DATABASE restaurant_test;  -- for tests
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 ```
 
-### 2. Backend
+#### 2. Backend
 
 ```bash
 cd backend
@@ -141,7 +173,7 @@ python -c "from app.database import Base; import asyncio; ..."  # see HOW_TO_RUN
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Frontend
+#### 3. Frontend
 
 ```bash
 cd frontend
@@ -152,7 +184,9 @@ npm run dev
 
 App runs at `http://localhost:3000`
 
-### 4. Tests
+---
+
+### Tests
 
 ```bash
 # Backend (36 tests)
